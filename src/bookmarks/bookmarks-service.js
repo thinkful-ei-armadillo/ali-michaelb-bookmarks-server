@@ -11,7 +11,7 @@ const BookmarksService = {
         return knex.select('*').from('bookmarks');
     },
 
-    insertBookmarks(knex, newItem){
+    insertBookmark(knex, newItem){
         return knex
                 .insert(newItem)
                 .into('bookmarks')

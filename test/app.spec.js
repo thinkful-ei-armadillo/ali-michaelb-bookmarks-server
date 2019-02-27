@@ -179,4 +179,4 @@ describe('Bookmarks Endpoints', () => {
         })
     })
   })
-})})
+})

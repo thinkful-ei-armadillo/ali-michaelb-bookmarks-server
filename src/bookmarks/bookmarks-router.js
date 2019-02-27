@@ -26,7 +26,7 @@ bookmarksRouter
       })
       .catch(next)
 })
-.post(bodyParser, (req, res) => {
+.post(bodyParser, (req, res, next) => {
     for (const field of ['title', 'url', 'rating']) {
     if (!req.body[field]) {
         logger.error(`${field} is required`)
@@ -45,54 +45,53 @@ bookmarksRouter
     return res.status(400).send(`'url' must be a valid URL`)
     }
 
-    const bookmark = { id: uuid(), title, url, description, rating }
+    const bookmark = { title, url, description, rating }
 
-    store.bookmarks.push(bookmark)
+    BookmarksService.insertBookmark(
+        req.app.get('db'),
+        bookmark)
+        .then(bookmark => {
+            logger.info(`Bookmark with id ${bookmark.id} created`)
+            res
+            .status(201)
+            .location(`http://localhost:8000/bookmarks/${bookmark.id}`)
+            .json(newBookmark(bookmark))
+        })
+        .catch(next)
 
-    logger.info(`Bookmark with id ${bookmark.id} created`)
-    res
-    .status(201)
-    .location(`http://localhost:8000/bookmarks/${bookmark.id}`)
-    .json(bookmark)
 })
 
 bookmarksRouter
 .route('/bookmarks/:bookmark_id')
-.get((req, res, next) => {
+.all((req, res, next) =>{
     const { bookmark_id } = req.params
-
-    BookmarksService.getById(req.app.get('db'), bookmark_id)
-    .then(bookmark =>{
-        if(!bookmark){
-            logger.error(`Bookmark with id ${bookmark_id} not found.`)
-            return res
-                .status(404)
-                .json(
-                { error: { message: 'Bookmark Not Found'}
-            })
-        }
-       res.json(newBookmark(bookmark));  
-    })
-    .catch(next) 
+    BookmarksService.getById(
+            req.app.get('db'),
+          bookmark_id
+        )
+              .then(bookmark => {
+                if (!bookmark) {
+                  return res.status(404).json({
+                    error: { message: `Bookmark doesn't exist` }
+                 })
+               }
+                res.bookmark = bookmark // save the article for the next middleware
+                next() // don't forget to call next so the next middleware happens!
+              })
+             .catch(next)
 })
-.delete((req, res) => {
+.get((req, res) => {
+    res.json(newBookmark(res.bookmark))
+})
+.delete((req, res, next) => {
     const { bookmark_id } = req.params
-
-    BookmarksService.getById(req.app.get('db'),) 
-
-    if (bookmarkIndex === -1) {
-    logger.error(`Bookmark with id ${bookmark_id} not found.`)
-    return res
-        .status(404)
-        .send('Bookmark Not Found')
-    }
-
-    store.bookmarks.splice(bookmarkIndex, 1)
-
-    logger.info(`Bookmark with id ${bookmark_id} deleted.`)
-    res
-    .status(204)
-    .end()
+    
+    BookmarksService.deleteBookmark(req.app.get('db'), bookmark_id)
+      .then(oldBookmark =>{
+          logger.info(`Bookmark with ${bookmark_id} deleted`)
+          res.status(204).end()
+      })
+      .catch(next)
 })
 
 module.exports = bookmarksRouter 
